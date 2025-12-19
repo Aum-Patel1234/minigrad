@@ -1,0 +1,4 @@
+# Pybind11 for Python bindings
+pybind11>=2.13
+# For stub generation
+pybind11-stubgen>=2.1
