@@ -48,7 +48,7 @@ jobs:
       # 6️⃣ Generate pybind11 stubs
       - name: Generate pybind11 stubs
         run: |
-          bash ../../generate_stubs.sh
+          bash generate_stubs.sh
 
       # 7️⃣ Run Python demo/tests
       - name: Run Python demo
