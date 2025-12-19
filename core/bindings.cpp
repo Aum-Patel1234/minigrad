@@ -17,8 +17,30 @@ PYBIND11_MODULE(minigrad, m) {
       .def(py::self * py::self)
       .def(py::self - py::self)
       .def(py::self / py::self)
+      .def("getLabel", &Value::getLabel)
+      .def("getOp", &Value::getOp)
       // Optional: define __repr__ for nice printing in Python
-      .def("__repr__", [](const Value &v) {
-        return "<Value data=" + std::to_string(v.getData()) + ">";
+      .def("__repr__",
+           [](const Value &v) {
+             std::string label =
+                 std::string(v.getLabel()); // convert string_view -> string
+             if (label.empty()) {
+               label = "Value(" + std::to_string(v.getData()) + ")";
+             } else {
+               label += "\\nValue(" + std::to_string(v.getData()) + ")";
+             }
+             return "<" + label + ">";
+           })
+      .def("exportGraph", [](const Value &v) {
+        py::dict result;
+
+        std::vector<const Value *> nodes;
+        std::vector<std::pair<const Value *, const Value *>> edges;
+        v.buildGraph(nodes, edges);
+
+        result["nodes"] = nodes;
+        result["edges"] = edges;
+
+        return result;
       });
 }
