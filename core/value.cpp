@@ -1,5 +1,7 @@
 #include "value.h"
 #include "consts.h"
+#include <cmath>
+#include <iostream>
 
 Value::Value(double data)
     : data(data), prevNodes(), op(), label(), grad(0.0), backward(nullptr) {}
@@ -78,6 +80,17 @@ Value Value::tanh() const {
     // derivative of tanh is 1 - out^2
     a->grad += (1.0 - (self->data * self->data)) * self->grad;
   };
+  return out;
+}
+
+Value Value::pow(const int n) const {
+  Value out = Value(std::pow(this->data, n), {this}, OP_POW);
+
+  out.backward = [n](const Value *self) {
+    const Value *a = self->prevNodes[0];
+    a->grad = n * std::pow(a->data, n - 1) * self->grad;
+  };
+
   return out;
 }
 

@@ -18,9 +18,11 @@ PYBIND11_MODULE(minigrad, m) {
       .def(py::self - py::self)
       .def(py::self / py::self)
       .def("tanh", &Value::tanh)
-      .def("getLabel", &Value::getLabel)
+      .def("pow", static_cast<Value (Value::*)(int) const>(&Value::pow),
+           py::arg("n"))
       .def("getOp", &Value::getOp)
       .def("getGrad", &Value::getGrad)
+      .def("getLabel", &Value::getLabel)
       // Backpropagation
       .def("backPropogate", &Value::backPropogate,
            "Perform backward pass to compute gradients")

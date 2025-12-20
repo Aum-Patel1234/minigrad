@@ -75,6 +75,7 @@ def main():
     f = e / a
 
     g = f.tanh()
+    h = f.pow(3)
 
     print("a =", a)
     print("b =", b)
@@ -83,8 +84,9 @@ def main():
     print("e = c * d =", e)
     print("f = e / a =", f)
     print("g = tanh(f) =", g)
+    print("h = h ** 3 =", h)
 
-    f.backPropogate()
+    h.backPropogate()
 
     print("\nAfter backward:")
     print(f"a.grad = {a.getGrad()}")
@@ -93,13 +95,12 @@ def main():
     print(f"d.grad = {d.getGrad()}")
     print(f"e.grad = {e.getGrad()}")
     print(f"f.grad = {f.getGrad()}")
-    print(f"g.grad = {g.getGrad()}")
 
-    graph = f.exportGraph()
+    graph = h.exportGraph()
     nodes = graph["nodes"]
     edges = graph["edges"]
 
-    render_computation_graph(nodes, edges)
+    render_computation_graph(nodes, edges, "computation_graph_h")
 
 
 if __name__ == "__main__":

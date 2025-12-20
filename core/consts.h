@@ -6,3 +6,4 @@ constexpr std::string_view OP_MUL = "*";
 constexpr std::string_view OP_SUB = "-";
 constexpr std::string_view OP_DIV = "/";
 constexpr std::string_view OP_TANH = "tanh";
+constexpr std::string_view OP_POW = "**";
