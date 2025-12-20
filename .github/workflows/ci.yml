@@ -29,7 +29,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pybind11 numpy pybind11-stubgen graphviz torch --index-url https://download.pytorch.org/whl/cpu
+          pip install pybind11 numpy pybind11-stubgen graphviz torch
 
       # 4️⃣ Install CMake and build tools
       - name: Install CMake and build tools
