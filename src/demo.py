@@ -10,27 +10,57 @@ import minigrad
 from graphviz import Digraph
 
 
-def render_computation_graph(nodes, edges, filename="computation_graph"):
-    dot = Digraph(comment="Computation Graph")
+def render_computation_graph(
+    nodes,
+    edges,
+    filename="computation_graph",
+    format="png",
+    rankdir="LR",
+):
+    """
+    format: png | svg | ...
+    rankdir: TB (top-bottom) | LR (left-right)
+    """
+    assert rankdir in ("LR", "TB")
 
-    # Add nodes
+    dot = Digraph(
+        name="ComputationGraph",
+        format=format,
+        graph_attr={"rankdir": rankdir},
+        node_attr={"shape": "record"},
+    )
+
+    # ---- nodes ----
     for v in nodes:
-        node_id = str(id(v))
+        vid = str(id(v))
         label = v.getLabel()
-        if label:
-            label_str = f"{label}\nValue({v.getData()})"
-        else:
-            label_str = f"Value({v.getData()})"
-        dot.node(node_id, label_str)
+        grad = v.getGrad()
 
-    # Add edges with operation labels
+        # main value node with gradient
+        node_label = (
+            "{ %s | data %.4f | grad %.4f }" % (label, v.getData(), grad)
+            if label
+            else "{ data %.4f | grad %.4f }" % (v.getData(), grad)
+        )
+
+        dot.node(vid, node_label)
+
+        # operation node (if exists)
+        op = v.getOp()
+        if op:
+            op_id = vid + op
+            dot.node(op_id, op, shape="circle")
+            dot.edge(op_id, vid)
+
+    # ---- edges ----
     for parent, child in edges:
-        op_label = child.getOp()
-        dot.edge(str(id(parent)), str(id(child)), label=op_label)
+        if child.getOp():
+            dot.edge(str(id(parent)), str(id(child)) + child.getOp())
+        else:
+            dot.edge(str(id(parent)), str(id(child)))
 
-    # Render to file
-    dot.render(filename, format="png", cleanup=True)
-    print(f"Graph saved as {filename}.png")
+    dot.render(filename, cleanup=True)
+    print(f"Graph saved as {filename}.{format}")
 
 
 def main():
@@ -44,12 +74,26 @@ def main():
 
     f = e / a
 
+    g = f.tanh()
+
     print("a =", a)
     print("b =", b)
     print("c = a + b =", c)
     print("d = a - b =", d)
     print("e = c * d =", e)
     print("f = e / a =", f)
+    print("g = tanh(f) =", g)
+
+    f.backPropogate()
+
+    print("\nAfter backward:")
+    print(f"a.grad = {a.getGrad()}")
+    print(f"b.grad = {b.getGrad()}")
+    print(f"c.grad = {c.getGrad()}")
+    print(f"d.grad = {d.getGrad()}")
+    print(f"e.grad = {e.getGrad()}")
+    print(f"f.grad = {f.getGrad()}")
+    print(f"g.grad = {g.getGrad()}")
 
     graph = f.exportGraph()
     nodes = graph["nodes"]
