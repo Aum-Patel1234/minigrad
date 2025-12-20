@@ -39,6 +39,7 @@ public:
   Value operator*(const Value &other) const;
   Value operator/(const Value &other) const;
   Value tanh() const;
+  Value relu() const;
   Value pow(const int n) const;
 
   // friend allows a function or class to access private and protected members

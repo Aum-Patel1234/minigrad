@@ -25,11 +25,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # 3️⃣ Install Python dependencies
+      # 3️⃣ Install Python dependencies (PyTorch CPU-only)
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pybind11 numpy pybind11-stubgen graphviz
+          pip install pybind11 numpy pybind11-stubgen graphviz torch --index-url https://download.pytorch.org/whl/cpu
 
       # 4️⃣ Install CMake and build tools
       - name: Install CMake and build tools
@@ -50,8 +50,7 @@ jobs:
         run: |
           bash generate_stubs.sh
 
-      # 7️⃣ Run Python demo/tests
-      - name: Run Python demo
+      # 7️⃣ Run Python tests
+      - name: Run Python tests
         run: |
-          export PYTHONPATH=$(pwd)/core/build
-          python src/demo.py
+          python test/test.py

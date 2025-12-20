@@ -83,6 +83,17 @@ Value Value::tanh() const {
   return out;
 }
 
+Value Value::relu() const {
+  Value out(std::max(0.0, this->data), {this}, OP_RELU);
+
+  out.backward = [](const Value *self) {
+    const Value *a = self->prevNodes[0];
+    a->grad += ((a->data < 0.0) ? 0 : 1) * self->grad;
+  };
+
+  return out;
+}
+
 Value Value::pow(const int n) const {
   Value out = Value(std::pow(this->data, n), {this}, OP_POW);
 

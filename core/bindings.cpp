@@ -18,6 +18,7 @@ PYBIND11_MODULE(minigrad, m) {
       .def(py::self - py::self)
       .def(py::self / py::self)
       .def("tanh", &Value::tanh)
+      .def("relu", &Value::relu)
       .def("pow", static_cast<Value (Value::*)(int) const>(&Value::pow),
            py::arg("n"))
       .def("getOp", &Value::getOp)
