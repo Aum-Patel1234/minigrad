@@ -9,17 +9,23 @@ namespace py = pybind11;
 PYBIND11_MODULE(minigrad, m) {
   m.doc() = "MiniGrad Value class Python bindings";
 
-  py::class_<Value>(m, "Value")
+  py::class_<Value, std::shared_ptr<Value>>(m, "Value")
       .def(py::init<double>(), "Constructor with a double value")
       .def("getData", &Value::getData, "Get the internal data")
       // Overload + operator
-      .def(py::self + py::self)
-      .def(py::self * py::self)
-      .def(py::self - py::self)
-      .def(py::self / py::self)
+      .def("__add__", [](std::shared_ptr<Value> a,
+                         std::shared_ptr<Value> b) { return *a + b; })
+      .def("__sub__", [](std::shared_ptr<Value> a,
+                         std::shared_ptr<Value> b) { return *a - b; })
+      .def("__mul__", [](std::shared_ptr<Value> a,
+                         std::shared_ptr<Value> b) { return *a * b; })
+      .def("__truediv__", [](std::shared_ptr<Value> a,
+                             std::shared_ptr<Value> b) { return *a / b; })
+
       .def("tanh", &Value::tanh)
       .def("relu", &Value::relu)
-      .def("pow", static_cast<Value (Value::*)(int) const>(&Value::pow),
+      .def("pow",
+           static_cast<std::shared_ptr<Value> (Value::*)(int)>(&Value::pow),
            py::arg("n"))
       .def("getOp", &Value::getOp)
       .def("getGrad", &Value::getGrad)
@@ -39,12 +45,13 @@ PYBIND11_MODULE(minigrad, m) {
              }
              return "<" + label + ">";
            })
-      .def("exportGraph", [](const Value &v) {
+      .def("exportGraph", [](const std::shared_ptr<Value> &v) {
         py::dict result;
 
-        std::vector<const Value *> nodes;
-        std::vector<std::pair<const Value *, const Value *>> edges;
-        v.buildGraph(nodes, edges);
+        std::vector<std::shared_ptr<Value>> nodes;
+        std::vector<std::pair<std::shared_ptr<Value>, std::shared_ptr<Value>>>
+            edges;
+        v->buildGraph(nodes, edges);
 
         result["nodes"] = nodes;
         result["edges"] = edges;

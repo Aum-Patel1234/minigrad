@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <queue>
 #include <string>
@@ -9,43 +10,43 @@
 #include <unordered_set>
 #include <vector>
 
-class Value {
+class Value : public std::enable_shared_from_this<Value> {
 private:
   double data;
-  std::vector<const Value *> prevNodes;
+  std::vector<std::shared_ptr<Value>> prevNodes;
   std::string op, label;
   mutable double grad;
-  std::function<void(const Value *)> backward;
+  std::function<void()> backward;
 
 public:
   Value(double data);
-  Value(double data, const std::vector<const Value *> &prevNodes);
-  Value(double data, const std::vector<const Value *> &prevNodes,
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes);
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes,
         const std::string_view op);
-  Value(double data, const std::vector<const Value *> &prevNodes,
-        const std::string_view op, const std::string label);
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes,
+        const std::string_view op, const std::string &label);
 
   void setData(double val);
-
   double getData() const;
   double getGrad() const;
   std::string_view getLabel() const;
   std::string_view getOp() const;
 
-  void
-  buildGraph(std::vector<const Value *> &nodes,
-             std::vector<std::pair<const Value *, const Value *>> &edges) const;
+  void buildGraph(
+      std::vector<std::shared_ptr<Value>> &nodes,
+      std::vector<std::pair<std::shared_ptr<Value>, std::shared_ptr<Value>>>
+          &edges);
 
-  Value operator+(const Value &other) const;
-  Value operator-(const Value &other) const;
-  Value operator*(const Value &other) const;
-  Value operator/(const Value &other) const;
-  Value tanh() const;
-  Value relu() const;
-  Value pow(const int n) const;
+  std::shared_ptr<Value> operator+(const std::shared_ptr<Value> &other);
+  std::shared_ptr<Value> operator-(const std::shared_ptr<Value> &other);
+  std::shared_ptr<Value> operator*(const std::shared_ptr<Value> &other);
+  std::shared_ptr<Value> operator/(const std::shared_ptr<Value> &other);
+  std::shared_ptr<Value> tanh();
+  std::shared_ptr<Value> relu();
+  std::shared_ptr<Value> pow(int n);
 
-  // friend allows a function or class to access private and protected members
-  friend std::ostream &operator<<(std::ostream &os, const Value &val);
+  friend std::ostream &operator<<(std::ostream &os,
+                                  const std::shared_ptr<Value> &val);
 
   void backPropogate();
 };

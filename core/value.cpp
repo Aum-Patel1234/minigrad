@@ -1,19 +1,19 @@
 #include "value.h"
 #include "consts.h"
-#include <cmath>
-#include <iostream>
+#include <memory>
+#include <vector>
 
 Value::Value(double data)
     : data(data), prevNodes(), op(), label(), grad(0.0), backward(nullptr) {}
-Value::Value(double data, const std::vector<const Value *> &prev)
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev)
     : data(data), prevNodes(prev), op(), label(), grad(0.0), backward(nullptr) {
 }
-Value::Value(double data, const std::vector<const Value *> &prev,
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
              const std::string_view op)
     : data(data), prevNodes(prev), op(op), label(), grad(0.0),
       backward(nullptr) {}
-Value::Value(double data, const std::vector<const Value *> &prev,
-             const std::string_view op, const std::string label)
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
+             const std::string_view op, const std::string &label)
     : data(data), prevNodes(prev), op(op), label(label), grad(0.0),
       backward(nullptr) {}
 
@@ -24,101 +24,112 @@ double Value::getGrad() const { return this->grad; }
 std::string_view Value::getLabel() const { return this->label; }
 std::string_view Value::getOp() const { return this->op; }
 
-Value Value::operator+(const Value &other) const {
-  Value out(this->data + other.data, {this, &other}, OP_ADD);
+std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev;
+  prev.push_back(self);
+  prev.push_back(other);
+  std::shared_ptr<Value> out =
+      std::make_shared<Value>(this->data + other->data, prev, OP_ADD);
 
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    const Value *b = self->prevNodes[1];
-    a->grad += 1.0 * self->grad;
-    b->grad += 1.0 * self->grad;
+  out->backward = [self, other, out]() {
+    self->grad += 1.0 * out->grad;
+    other->grad += 1.0 * out->grad;
   };
 
   return out;
 }
 
-Value Value::operator-(const Value &other) const {
-  Value out(this->data - other.data, {this, &other}, OP_SUB);
+std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev{self, other};
+  auto out = std::make_shared<Value>(this->data - other->data, prev, OP_SUB);
 
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    const Value *b = self->prevNodes[1];
-    a->grad += 1.0 * self->grad;
-    b->grad += -1.0 * self->grad;
+  out->backward = [self, other, out]() {
+    self->grad += 1.0 * out->grad;
+    other->grad += -1.0 * out->grad;
   };
   return out;
 }
 
-Value Value::operator*(const Value &other) const {
-  Value out(this->data * other.data, {this, &other}, OP_MUL);
+std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev{self, other};
+  auto out = std::make_shared<Value>(this->data * other->data, prev, OP_MUL);
 
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    const Value *b = self->prevNodes[1];
-    a->grad += b->data * self->grad;
-    b->grad += a->data * self->grad;
+  out->backward = [self, other, out]() {
+    self->grad += other->data * out->grad;
+    other->grad += self->data * out->grad;
   };
   return out;
 }
 
-Value Value::operator/(const Value &other) const {
-  Value out(this->data / other.data, {this, &other}, OP_DIV);
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    const Value *b = self->prevNodes[1];
+std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev{self, other};
+  auto out = std::make_shared<Value>(this->data / other->data, prev, OP_DIV);
+
+  out->backward = [self, other, out]() {
     // d(a/b)/da = 1/b
-    a->grad += (1.0 / b->data) * self->grad;
+    self->grad += (1.0 / other->data) * out->grad;
     // d(a/b)/db = -a / (b^2)
-    b->grad += (-a->data / (b->data * b->data)) * self->grad;
+    other->grad += (-self->data / (other->data * other->data)) * out->grad;
   };
   return out;
 }
 
-Value Value::tanh() const {
-  Value out = Value(std::tanh(this->data), {this}, OP_TANH);
+std::shared_ptr<Value> Value::tanh() {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev{self};
+  auto out = std::make_shared<Value>(std::tanh(this->data), prev, OP_TANH);
 
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
+  out->backward = [self, out]() {
     // derivative of tanh is 1 - out^2
-    a->grad += (1.0 - (self->data * self->data)) * self->grad;
+    self->grad += (1.0 - (out->data * out->data)) * out->grad;
   };
   return out;
 }
 
-Value Value::relu() const {
-  Value out(std::max(0.0, this->data), {this}, OP_RELU);
+std::shared_ptr<Value> Value::relu() {
+  auto self = shared_from_this();
+  std::vector<std::shared_ptr<Value>> prev{self};
+  auto out = std::make_shared<Value>(std::max(0.0, this->data), prev, OP_RELU);
 
-  out.backward = [](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    a->grad += ((a->data < 0.0) ? 0 : 1) * self->grad;
-  };
-
-  return out;
-}
-
-Value Value::pow(const int n) const {
-  Value out = Value(std::pow(this->data, n), {this}, OP_POW);
-
-  out.backward = [n](const Value *self) {
-    const Value *a = self->prevNodes[0];
-    a->grad = n * std::pow(a->data, n - 1) * self->grad;
+  out->backward = [self, out]() {
+    self->grad += ((self->data < 0.0) ? 0 : 1) * out->grad;
   };
 
   return out;
 }
 
-std::ostream &operator<<(std::ostream &os, const Value &val) {
-  os << "Value(data=" << val.data << ")\n";
+std::shared_ptr<Value> Value::pow(int n) {
+  auto self = shared_from_this();
+
+  auto out = std::make_shared<Value>(std::pow(this->data, n),
+                                     std::vector<std::shared_ptr<Value>>{self},
+                                     OP_POW);
+
+  out->backward = [self, out, n]() {
+    self->grad += n * std::pow(self->data, n - 1) * out->grad;
+  };
+
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &os, const std::shared_ptr<Value> &val) {
+  os << "Value(data=" << val->getData() << ", grad=" << val->getGrad() << ")";
   return os;
 }
 
 void Value::buildGraph(
-    std::vector<const Value *> &nodes,
-    std::vector<std::pair<const Value *, const Value *>> &edges) const {
-  std::queue<const Value *> q;
-  std::unordered_set<const Value *> visited;
-  q.push(this);
-  visited.insert(this);
+    std::vector<std::shared_ptr<Value>> &nodes,
+    std::vector<std::pair<std::shared_ptr<Value>, std::shared_ptr<Value>>>
+        &edges) {
+  std::queue<std::shared_ptr<Value>> q;
+  std::unordered_set<Value *> visited;
+  std::shared_ptr<Value> self = shared_from_this();
+  q.push(self);
+  visited.insert(self.get());
 
   while (!q.empty()) {
     auto top = q.front();
@@ -127,7 +138,7 @@ void Value::buildGraph(
 
     for (auto &node : top->prevNodes) {
       edges.push_back({node, top});
-      if (visited.insert(node).second)
+      if (visited.insert(node.get()).second)
         q.push(node);
     }
   }
@@ -135,24 +146,25 @@ void Value::buildGraph(
 
 void Value::backPropogate() {
   this->grad = 1.0;
-  std::vector<const Value *> topo;
-  std::unordered_set<const Value *> visited;
+  std::vector<std::shared_ptr<Value>> topo;
+  std::unordered_set<Value *> visited;
 
-  std::function<void(const Value *)> buildTopo = [&](const Value *node) {
-    if (visited.find(node) != visited.end())
-      return;
-    visited.insert(node);
-    for (auto prev : node->prevNodes)
-      buildTopo(prev);
-    topo.push_back(node);
-  };
+  std::function<void(const std::shared_ptr<Value>)> buildTopo =
+      [&](std::shared_ptr<Value> node) {
+        if (visited.find(node.get()) != visited.end())
+          return;
+        visited.insert(node.get());
+        for (auto prev : node->prevNodes)
+          buildTopo(prev);
+        topo.push_back(node);
+      };
 
   // NOTE: as it is in reverse i.e starting from front to back no need to
   // reverse as it automatically acts like a stack
-  buildTopo(this);
+  buildTopo(shared_from_this());
 
   for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
     if ((*it)->backward)
-      (*it)->backward(*it);
+      (*it)->backward();
   }
 }
