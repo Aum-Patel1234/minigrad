@@ -25,6 +25,8 @@ public:
   Value(double data, const std::vector<const Value *> &prevNodes,
         const std::string_view op, const std::string label);
 
+  void setData(double val);
+
   double getData() const;
   double getGrad() const;
   std::string_view getLabel() const;

@@ -17,6 +17,8 @@ Value::Value(double data, const std::vector<const Value *> &prev,
     : data(data), prevNodes(prev), op(op), label(label), grad(0.0),
       backward(nullptr) {}
 
+void Value::setData(double val) { this->data = val; }
+
 double Value::getData() const { return this->data; }
 double Value::getGrad() const { return this->grad; }
 std::string_view Value::getLabel() const { return this->label; }
@@ -145,6 +147,8 @@ void Value::backPropogate() {
     topo.push_back(node);
   };
 
+  // NOTE: as it is in reverse i.e starting from front to back no need to
+  // reverse as it automatically acts like a stack
   buildTopo(this);
 
   for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
