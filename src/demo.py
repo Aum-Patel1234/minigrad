@@ -1,4 +1,5 @@
 import os
+import gc
 import sys
 from graphviz.graphs import Digraph
 
@@ -66,7 +67,7 @@ def render_computation_graph(
 def main():
     a = minigrad.Value(2)
     b = minigrad.Value(3)
-
+    n = minigrad.Value(22)
     c = a + b
     d = a - b
 
@@ -101,6 +102,38 @@ def main():
     edges = graph["edges"]
 
     render_computation_graph(nodes, edges, "computation_graph_h")
+
+    print("\n\n REF count of each shared ptr\n")
+    print("Ref count (a) =", a.getRefCount())
+    print("Ref count (b) =", b.getRefCount())
+    print("Ref count (c) = a + b =", c.getRefCount())
+    print("Ref Count d = a - b =", d.getRefCount())
+    print("ref count e = c * d =", e.getRefCount())
+    print("ref count f = e / a =", f.getRefCount())
+    print("ref count g = tanh(f) =", g.getRefCount())
+    print("ref count h = h ** 3 =", h.getRefCount())
+    print("ref count n = ", n.getRefCount())
+
+    del nodes
+    del edges
+    del graph
+
+    del h
+    del g
+    del f
+    del e
+    del d
+    del c
+    del b
+    del a
+
+    del n
+    # ref count n =  2 (ONe hold by python and one hold by Pybind11)
+    # [Value destroyed] data=22
+    # GC done
+
+    gc.collect()
+    print("GC done")
 
 
 if __name__ == "__main__":

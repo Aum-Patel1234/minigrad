@@ -30,6 +30,7 @@ PYBIND11_MODULE(minigrad, m) {
       .def("getOp", &Value::getOp)
       .def("getGrad", &Value::getGrad)
       .def("getLabel", &Value::getLabel)
+      .def("getRefCount", &Value::getRefCount)
       // Backpropagation
       .def("backPropogate", &Value::backPropogate,
            "Perform backward pass to compute gradients")

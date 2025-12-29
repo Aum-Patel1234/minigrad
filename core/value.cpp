@@ -5,14 +5,14 @@
 
 Value::Value(double data)
     : data(data), prevNodes(), op(), label(), grad(0.0), backward(nullptr) {}
-Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev)
+Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev)
     : data(data), prevNodes(prev), op(), label(), grad(0.0), backward(nullptr) {
 }
-Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
+Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev,
              const std::string_view op)
     : data(data), prevNodes(prev), op(op), label(), grad(0.0),
       backward(nullptr) {}
-Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
+Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev,
              const std::string_view op, const std::string &label)
     : data(data), prevNodes(prev), op(op), label(label), grad(0.0),
       backward(nullptr) {}
@@ -23,10 +23,17 @@ double Value::getData() const { return this->data; }
 double Value::getGrad() const { return this->grad; }
 std::string_view Value::getLabel() const { return this->label; }
 std::string_view Value::getOp() const { return this->op; }
+long Value::getRefCount() const {
+  try {
+    return shared_from_this().use_count();
+  } catch (const std::bad_weak_ptr &) {
+    return 0;
+  }
+}
 
 std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev;
+  std::vector<std::weak_ptr<Value>> prev;
   prev.push_back(self);
   prev.push_back(other);
   std::shared_ptr<Value> out =
@@ -42,7 +49,7 @@ std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev{self, other};
+  std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data - other->data, prev, OP_SUB);
 
   out->backward = [self, other, out]() {
@@ -54,7 +61,7 @@ std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev{self, other};
+  std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data * other->data, prev, OP_MUL);
 
   out->backward = [self, other, out]() {
@@ -66,7 +73,7 @@ std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev{self, other};
+  std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data / other->data, prev, OP_DIV);
 
   out->backward = [self, other, out]() {
@@ -80,9 +87,11 @@ std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::tanh() {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev{self};
+  std::vector<std::weak_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::tanh(this->data), prev, OP_TANH);
 
+  // TODO: convert args of this callback to weak_ptr as they do not need to
+  // increase ref count  of the Value Obj
   out->backward = [self, out]() {
     // derivative of tanh is 1 - out^2
     self->grad += (1.0 - (out->data * out->data)) * out->grad;
@@ -92,7 +101,7 @@ std::shared_ptr<Value> Value::tanh() {
 
 std::shared_ptr<Value> Value::relu() {
   auto self = shared_from_this();
-  std::vector<std::shared_ptr<Value>> prev{self};
+  std::vector<std::weak_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::max(0.0, this->data), prev, OP_RELU);
 
   out->backward = [self, out]() {
@@ -105,9 +114,8 @@ std::shared_ptr<Value> Value::relu() {
 std::shared_ptr<Value> Value::pow(int n) {
   auto self = shared_from_this();
 
-  auto out = std::make_shared<Value>(std::pow(this->data, n),
-                                     std::vector<std::shared_ptr<Value>>{self},
-                                     OP_POW);
+  auto out = std::make_shared<Value>(
+      std::pow(this->data, n), std::vector<std::weak_ptr<Value>>{self}, OP_POW);
 
   out->backward = [self, out, n]() {
     self->grad += n * std::pow(self->data, n - 1) * out->grad;
@@ -136,10 +144,12 @@ void Value::buildGraph(
     nodes.push_back(top);
     q.pop();
 
-    for (auto &node : top->prevNodes) {
-      edges.push_back({node, top});
-      if (visited.insert(node.get()).second)
-        q.push(node);
+    for (auto &wp : top->prevNodes) {
+      if (auto parent = wp.lock()) {
+        edges.push_back({parent, top});
+        if (visited.insert(parent.get()).second)
+          q.push(parent);
+      }
     }
   }
 }
@@ -154,8 +164,10 @@ void Value::backPropogate() {
         if (visited.find(node.get()) != visited.end())
           return;
         visited.insert(node.get());
-        for (auto prev : node->prevNodes)
-          buildTopo(prev);
+        for (auto prev : node->prevNodes) {
+          if (prev.lock())
+            buildTopo(prev.lock());
+        }
         topo.push_back(node);
       };
 
