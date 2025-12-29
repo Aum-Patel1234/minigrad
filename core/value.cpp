@@ -39,7 +39,17 @@ std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
   std::shared_ptr<Value> out =
       std::make_shared<Value>(this->data + other->data, prev, OP_ADD);
 
-  out->backward = [self, other, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wother = other;
+  std::weak_ptr<Value> wout = out;
+  // NOTE: callback funcs also keep a reference to shared_ptr if not specified
+  out->backward = [wself, wother, wout]() {
+    auto self = wself.lock();
+    auto other = wother.lock();
+    auto out = wout.lock();
+    if (!self || !other || !out)
+      return;
+
     self->grad += 1.0 * out->grad;
     other->grad += 1.0 * out->grad;
   };
@@ -52,7 +62,16 @@ std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
   std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data - other->data, prev, OP_SUB);
 
-  out->backward = [self, other, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wother = other;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [wself, wother, wout]() {
+    auto self = wself.lock();
+    auto other = wother.lock();
+    auto out = wout.lock();
+    if (!self || !other || !out)
+      return;
+
     self->grad += 1.0 * out->grad;
     other->grad += -1.0 * out->grad;
   };
@@ -64,7 +83,16 @@ std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
   std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data * other->data, prev, OP_MUL);
 
-  out->backward = [self, other, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wother = other;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [wself, wother, wout]() {
+    auto self = wself.lock();
+    auto other = wother.lock();
+    auto out = wout.lock();
+    if (!self || !other || !out)
+      return;
+
     self->grad += other->data * out->grad;
     other->grad += self->data * out->grad;
   };
@@ -76,7 +104,16 @@ std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
   std::vector<std::weak_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data / other->data, prev, OP_DIV);
 
-  out->backward = [self, other, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wother = other;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [wself, wother, wout]() {
+    auto self = wself.lock();
+    auto other = wother.lock();
+    auto out = wout.lock();
+    if (!self || !other || !out)
+      return;
+
     // d(a/b)/da = 1/b
     self->grad += (1.0 / other->data) * out->grad;
     // d(a/b)/db = -a / (b^2)
@@ -90,9 +127,14 @@ std::shared_ptr<Value> Value::tanh() {
   std::vector<std::weak_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::tanh(this->data), prev, OP_TANH);
 
-  // TODO: convert args of this callback to weak_ptr as they do not need to
-  // increase ref count  of the Value Obj
-  out->backward = [self, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [wself, wout]() {
+    auto self = wself.lock();
+    auto out = wout.lock();
+    if (!self || !out)
+      return;
+
     // derivative of tanh is 1 - out^2
     self->grad += (1.0 - (out->data * out->data)) * out->grad;
   };
@@ -104,7 +146,14 @@ std::shared_ptr<Value> Value::relu() {
   std::vector<std::weak_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::max(0.0, this->data), prev, OP_RELU);
 
-  out->backward = [self, out]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [wself, wout]() {
+    auto self = wself.lock();
+    auto out = wout.lock();
+    if (!self || !out)
+      return;
+
     self->grad += ((self->data < 0.0) ? 0 : 1) * out->grad;
   };
 
@@ -117,7 +166,14 @@ std::shared_ptr<Value> Value::pow(int n) {
   auto out = std::make_shared<Value>(
       std::pow(this->data, n), std::vector<std::weak_ptr<Value>>{self}, OP_POW);
 
-  out->backward = [self, out, n]() {
+  std::weak_ptr<Value> wself = self;
+  std::weak_ptr<Value> wout = out;
+  out->backward = [n, wself, wout]() {
+    auto self = wself.lock();
+    auto out = wout.lock();
+    if (!self || !out)
+      return;
+
     self->grad += n * std::pow(self->data, n - 1) * out->grad;
   };
 

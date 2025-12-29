@@ -7,6 +7,14 @@ This project is primarily for learning purposes, to understand how autograd and 
 
 Inspired by [micrograd](https://github.com/karpathy/micrograd) by Andrej Karpathy.
 
+## IMPORTANT Notes
+When a lambda captures a shared_ptr, it increments the reference count, keeping the object alive. Capturing a weak_ptr does not increase the count, so the object can still be destroyed.
+```cpp
+std::shared_ptr<Value> a = std::make_shared<Value>(10);
+auto cb1 = [a]{ a->grad += 1; };           // captures shared_ptr → ref count +1
+std::weak_ptr<Value> wa = a;
+auto cb2 = [wa]{ if(auto s = wa.lock()) s->grad += 1; }; // captures weak_ptr → no ref count increase
+```
 
 ## Prerequisites
 
