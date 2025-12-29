@@ -14,17 +14,17 @@
 class Value : public std::enable_shared_from_this<Value> {
 private:
   double data;
-  std::vector<std::weak_ptr<Value>> prevNodes;
+  std::vector<std::shared_ptr<Value>> prevNodes;
   std::string op, label;
   mutable double grad;
   std::function<void()> backward;
 
 public:
   Value(double data);
-  Value(double data, const std::vector<std::weak_ptr<Value>> &prevNodes);
-  Value(double data, const std::vector<std::weak_ptr<Value>> &prevNodes,
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes);
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes,
         const std::string_view op);
-  Value(double data, const std::vector<std::weak_ptr<Value>> &prevNodes,
+  Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes,
         const std::string_view op, const std::string &label);
   ~Value() {
 #ifndef NDEBUG

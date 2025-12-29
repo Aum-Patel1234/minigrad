@@ -5,14 +5,14 @@
 
 Value::Value(double data)
     : data(data), prevNodes(), op(), label(), grad(0.0), backward(nullptr) {}
-Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev)
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev)
     : data(data), prevNodes(prev), op(), label(), grad(0.0), backward(nullptr) {
 }
-Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev,
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
              const std::string_view op)
     : data(data), prevNodes(prev), op(op), label(), grad(0.0),
       backward(nullptr) {}
-Value::Value(double data, const std::vector<std::weak_ptr<Value>> &prev,
+Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
              const std::string_view op, const std::string &label)
     : data(data), prevNodes(prev), op(op), label(label), grad(0.0),
       backward(nullptr) {}
@@ -33,7 +33,7 @@ long Value::getRefCount() const {
 
 std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev;
+  std::vector<std::shared_ptr<Value>> prev;
   prev.push_back(self);
   prev.push_back(other);
   std::shared_ptr<Value> out =
@@ -59,7 +59,7 @@ std::shared_ptr<Value> Value::operator+(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev{self, other};
+  std::vector<std::shared_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data - other->data, prev, OP_SUB);
 
   std::weak_ptr<Value> wself = self;
@@ -80,7 +80,7 @@ std::shared_ptr<Value> Value::operator-(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev{self, other};
+  std::vector<std::shared_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data * other->data, prev, OP_MUL);
 
   std::weak_ptr<Value> wself = self;
@@ -101,7 +101,7 @@ std::shared_ptr<Value> Value::operator*(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev{self, other};
+  std::vector<std::shared_ptr<Value>> prev{self, other};
   auto out = std::make_shared<Value>(this->data / other->data, prev, OP_DIV);
 
   std::weak_ptr<Value> wself = self;
@@ -124,7 +124,7 @@ std::shared_ptr<Value> Value::operator/(const std::shared_ptr<Value> &other) {
 
 std::shared_ptr<Value> Value::tanh() {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev{self};
+  std::vector<std::shared_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::tanh(this->data), prev, OP_TANH);
 
   std::weak_ptr<Value> wself = self;
@@ -143,7 +143,7 @@ std::shared_ptr<Value> Value::tanh() {
 
 std::shared_ptr<Value> Value::relu() {
   auto self = shared_from_this();
-  std::vector<std::weak_ptr<Value>> prev{self};
+  std::vector<std::shared_ptr<Value>> prev{self};
   auto out = std::make_shared<Value>(std::max(0.0, this->data), prev, OP_RELU);
 
   std::weak_ptr<Value> wself = self;
@@ -163,8 +163,9 @@ std::shared_ptr<Value> Value::relu() {
 std::shared_ptr<Value> Value::pow(int n) {
   auto self = shared_from_this();
 
-  auto out = std::make_shared<Value>(
-      std::pow(this->data, n), std::vector<std::weak_ptr<Value>>{self}, OP_POW);
+  auto out = std::make_shared<Value>(std::pow(this->data, n),
+                                     std::vector<std::shared_ptr<Value>>{self},
+                                     OP_POW);
 
   std::weak_ptr<Value> wself = self;
   std::weak_ptr<Value> wout = out;
@@ -200,12 +201,10 @@ void Value::buildGraph(
     nodes.push_back(top);
     q.pop();
 
-    for (auto &wp : top->prevNodes) {
-      if (auto parent = wp.lock()) {
-        edges.push_back({parent, top});
-        if (visited.insert(parent.get()).second)
-          q.push(parent);
-      }
+    for (auto &parent : top->prevNodes) {
+      edges.push_back({parent, top});
+      if (visited.insert(parent.get()).second)
+        q.push(parent);
     }
   }
 }
@@ -221,8 +220,7 @@ void Value::backPropogate() {
           return;
         visited.insert(node.get());
         for (auto prev : node->prevNodes) {
-          if (prev.lock())
-            buildTopo(prev.lock());
+          buildTopo(prev);
         }
         topo.push_back(node);
       };

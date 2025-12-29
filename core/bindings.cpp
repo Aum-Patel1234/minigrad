@@ -1,3 +1,4 @@
+#include "nn.hpp"
 #include "value.h"
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
@@ -59,4 +60,15 @@ PYBIND11_MODULE(minigrad, m) {
 
         return result;
       });
+
+  py::class_<Neuron>(m, "Neuron")
+      .def(py::init<size_t>(), py::arg("input_size"),
+           "Create a neuron with given input size")
+
+      .def(
+          "__call__",
+          [](Neuron &n, std::vector<std::shared_ptr<Value>> &inputs) {
+            return n(inputs);
+          },
+          py::arg("inputs"), "Forward pass through the neuron");
 }
