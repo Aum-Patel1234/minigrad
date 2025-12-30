@@ -3,10 +3,13 @@
 #include "value.h"
 #include <cstddef>
 #include <memory>
+#include <random>
+#include <stdexcept>
 #include <vector>
 
 class Module {
 public:
+  virtual ~Module() = default;
   virtual void zero_grad() {
     for (auto &p : parameters())
       p->zeroGrad();
@@ -20,6 +23,9 @@ private:
   std::shared_ptr<Value> b;
 
 public:
+  // Make Neuron non-copyable to prevent accidental copies
+  Neuron(const Neuron &) = delete;
+  Neuron &operator=(const Neuron &) = delete;
   Neuron(size_t inputSize);
   std::shared_ptr<Value>
   operator()(const std::vector<std::shared_ptr<Value>> &input) const;
@@ -29,10 +35,10 @@ public:
 
 class Layer : public Module {
 private:
-  std::vector<Neuron> neurons;
+  std::vector<std::shared_ptr<Neuron>> neurons;
 
 public:
-  Layer(const std::vector<Neuron> &neurons);
+  Layer(const std::vector<std::shared_ptr<Neuron>> &neurons);
 
   std::vector<std::shared_ptr<Value>>
   operator()(const std::vector<std::shared_ptr<Value>> &input) const;
@@ -42,10 +48,10 @@ public:
 
 class MLP : public Module {
 private:
-  std::vector<Layer> layers;
+  std::vector<std::shared_ptr<Layer>> layers;
 
 public:
-  MLP(const std::vector<Layer> &layers);
+  MLP(const std::vector<std::shared_ptr<Layer>> &layers);
   std::vector<std::shared_ptr<Value>>
   operator()(const std::vector<std::shared_ptr<Value>> &input) const;
 

@@ -1,10 +1,6 @@
 #include "nn.hpp"
 #include "value.h"
-#include <cstddef>
 #include <memory>
-#include <random>
-#include <stdexcept>
-#include <vector>
 
 Neuron::Neuron(size_t inputSize) {
   static std::mt19937 rng(std::random_device{}());
@@ -41,7 +37,8 @@ std::vector<std::shared_ptr<Value>> Neuron::parameters() const {
 }
 
 // Layers
-Layer::Layer(const std::vector<Neuron> &neurons) : neurons(neurons) {};
+Layer::Layer(const std::vector<std::shared_ptr<Neuron>> &neurons)
+    : neurons(neurons) {};
 
 std::vector<std::shared_ptr<Value>>
 Layer::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
@@ -49,7 +46,7 @@ Layer::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
   out.reserve(neurons.size());
 
   for (const auto &n : neurons)
-    out.push_back(n(input)); // this willl accept a new neuron
+    out.push_back((*n)(input)); // this willl accept a new neuron
 
   return out;
 }
@@ -57,21 +54,21 @@ Layer::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
 std::vector<std::shared_ptr<Value>> Layer::parameters() const {
   std::vector<std::shared_ptr<Value>> params;
   for (const auto &p : neurons) {
-    auto parameters = p.parameters();
+    auto parameters = p->parameters();
     params.insert(params.end(), parameters.begin(), parameters.end());
   }
   return params;
 }
 
 // MLP
-MLP::MLP(const std::vector<Layer> &layers) : layers(layers) {};
+MLP::MLP(const std::vector<std::shared_ptr<Layer>> &layers) : layers(layers) {};
 
 std::vector<std::shared_ptr<Value>>
 MLP::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
   std::vector<std::shared_ptr<Value>> out = input;
 
   for (const auto &l : layers) {
-    out = l(out);
+    out = (*l)(out);
   }
 
   return out;
@@ -79,10 +76,9 @@ MLP::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
 
 std::vector<std::shared_ptr<Value>> MLP::parameters() const {
   std::vector<std::shared_ptr<Value>> out;
-  out.reserve(layers.size());
 
   for (const auto &l : layers) {
-    auto np = l.parameters();
+    auto np = l->parameters();
     out.insert(out.end(), np.begin(), np.end());
   }
 

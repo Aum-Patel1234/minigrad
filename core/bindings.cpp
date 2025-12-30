@@ -61,34 +61,40 @@ PYBIND11_MODULE(minigrad, m) {
         return result;
       });
 
-  py::class_<Neuron>(m, "Neuron")
+  py::class_<Neuron, std::shared_ptr<Neuron>>(m, "Neuron")
       .def(py::init<size_t>(), py::arg("input_size"),
            "Create a neuron with given input size")
-
       .def(
           "__call__",
-          [](Neuron &n, std::vector<std::shared_ptr<Value>> &inputs) {
-            return n(inputs);
+          [](std::shared_ptr<Neuron> &n,
+             std::vector<std::shared_ptr<Value>> &inputs) {
+            return (*n)(inputs); // call operator()(...) const
           },
-          py::arg("inputs"), "Forward pass through the neuron")
+          py::arg("inputs"))
       .def("zero_grad", &Neuron::zero_grad);
 
-  py::class_<Layer>(m, "Layer")
-      .def(py::init<const std::vector<Neuron> &>(), py::arg("neurons"))
+  // Layer now accepts vector<shared_ptr<Neuron>>
+  py::class_<Layer, std::shared_ptr<Layer>>(m, "Layer")
+      .def(py::init<const std::vector<std::shared_ptr<Neuron>> &>(),
+           py::arg("neurons"))
       .def(
           "__call__",
-          [](Layer &l, std::vector<std::shared_ptr<Value>> &inputs) {
-            return l(inputs);
+          [](std::shared_ptr<Layer> &l,
+             std::vector<std::shared_ptr<Value>> &inputs) {
+            return (*l)(inputs);
           },
           py::arg("inputs"))
       .def("parameters", &Layer::parameters);
 
-  py::class_<MLP>(m, "MLP")
-      .def(py::init<const std::vector<Layer> &>(), py::arg("layers"))
+  // MLP with shared_ptr<Layer>
+  py::class_<MLP, std::shared_ptr<MLP>>(m, "MLP")
+      .def(py::init<const std::vector<std::shared_ptr<Layer>> &>(),
+           py::arg("layers"))
       .def(
           "__call__",
-          [](MLP &m_, std::vector<std::shared_ptr<Value>> &inputs) {
-            return m_(inputs);
+          [](std::shared_ptr<MLP> &m_,
+             std::vector<std::shared_ptr<Value>> &inputs) {
+            return (*m_)(inputs);
           },
           py::arg("inputs"))
       .def("parameters", &MLP::parameters)

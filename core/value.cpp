@@ -1,7 +1,5 @@
 #include "value.h"
 #include "consts.h"
-#include <memory>
-#include <vector>
 
 Value::Value(double data)
     : data(data), prevNodes(), op(), label(), grad(0.0), backward(nullptr) {}
