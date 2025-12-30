@@ -18,6 +18,7 @@ Value::Value(double data, const std::vector<std::shared_ptr<Value>> &prev,
       backward(nullptr) {}
 
 void Value::setData(double val) { this->data = val; }
+void Value::zeroGrad() { this->grad = 0.0; }
 
 double Value::getData() const { return this->data; }
 double Value::getGrad() const { return this->grad; }

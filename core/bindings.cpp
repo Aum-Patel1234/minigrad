@@ -22,7 +22,7 @@ PYBIND11_MODULE(minigrad, m) {
                          std::shared_ptr<Value> b) { return *a * b; })
       .def("__truediv__", [](std::shared_ptr<Value> a,
                              std::shared_ptr<Value> b) { return *a / b; })
-
+      .def("setData", &Value::setData, "Set the internal data")
       .def("tanh", &Value::tanh)
       .def("relu", &Value::relu)
       .def("pow",
@@ -70,5 +70,27 @@ PYBIND11_MODULE(minigrad, m) {
           [](Neuron &n, std::vector<std::shared_ptr<Value>> &inputs) {
             return n(inputs);
           },
-          py::arg("inputs"), "Forward pass through the neuron");
+          py::arg("inputs"), "Forward pass through the neuron")
+      .def("zero_grad", &Neuron::zero_grad);
+
+  py::class_<Layer>(m, "Layer")
+      .def(py::init<const std::vector<Neuron> &>(), py::arg("neurons"))
+      .def(
+          "__call__",
+          [](Layer &l, std::vector<std::shared_ptr<Value>> &inputs) {
+            return l(inputs);
+          },
+          py::arg("inputs"))
+      .def("parameters", &Layer::parameters);
+
+  py::class_<MLP>(m, "MLP")
+      .def(py::init<const std::vector<Layer> &>(), py::arg("layers"))
+      .def(
+          "__call__",
+          [](MLP &m_, std::vector<std::shared_ptr<Value>> &inputs) {
+            return m_(inputs);
+          },
+          py::arg("inputs"))
+      .def("parameters", &MLP::parameters)
+      .def("zero_grad", &MLP::zero_grad);
 }

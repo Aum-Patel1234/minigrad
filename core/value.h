@@ -27,12 +27,13 @@ public:
   Value(double data, const std::vector<std::shared_ptr<Value>> &prevNodes,
         const std::string_view op, const std::string &label);
   ~Value() {
-#ifndef NDEBUG
-    std::cerr << "[Value destroyed] data=" << data << "\n";
-#endif
+    // #ifndef NDEBUG
+    //     std::cerr << "[Value destroyed] data=" << data << "\n";
+    // #endif
   }
 
   void setData(double val);
+  void zeroGrad();
   double getData() const;
   double getGrad() const;
   std::string_view getLabel() const;

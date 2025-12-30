@@ -4,6 +4,7 @@
 #include <memory>
 #include <random>
 #include <stdexcept>
+#include <vector>
 
 Neuron::Neuron(size_t inputSize) {
   static std::mt19937 rng(std::random_device{}());
@@ -17,14 +18,73 @@ Neuron::Neuron(size_t inputSize) {
 }
 
 std::shared_ptr<Value>
-Neuron::operator()(std::vector<std::shared_ptr<Value>> &input) {
+Neuron::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
   if (input.size() != w.size())
     throw std::runtime_error("Input and weight size mismatch");
 
-  std::shared_ptr<Value> out = *w[0] * input[0];
-  for (size_t i = 1; i < input.size(); ++i)
+  if (w.size() == 0)
+    throw std::runtime_error("size cant be 0.");
+
+  auto out = *w[0] * input[0];
+  for (size_t i = 1; i < w.size(); ++i)
     out = *out + (*w[i] * input[i]);
 
   out = *out + b;
+  // TODO: accept activation func as an argument
   return out->tanh();
+}
+
+std::vector<std::shared_ptr<Value>> Neuron::parameters() const {
+  std::vector<std::shared_ptr<Value>> params(w);
+  params.push_back(b);
+  return params;
+}
+
+// Layers
+Layer::Layer(const std::vector<Neuron> &neurons) : neurons(neurons) {};
+
+std::vector<std::shared_ptr<Value>>
+Layer::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
+  std::vector<std::shared_ptr<Value>> out;
+  out.reserve(neurons.size());
+
+  for (const auto &n : neurons)
+    out.push_back(n(input)); // this willl accept a new neuron
+
+  return out;
+}
+
+std::vector<std::shared_ptr<Value>> Layer::parameters() const {
+  std::vector<std::shared_ptr<Value>> params;
+  for (const auto &p : neurons) {
+    auto parameters = p.parameters();
+    params.insert(params.end(), parameters.begin(), parameters.end());
+  }
+  return params;
+}
+
+// MLP
+MLP::MLP(const std::vector<Layer> &layers) : layers(layers) {};
+
+std::vector<std::shared_ptr<Value>>
+MLP::operator()(const std::vector<std::shared_ptr<Value>> &input) const {
+  std::vector<std::shared_ptr<Value>> out = input;
+
+  for (const auto &l : layers) {
+    out = l(out);
+  }
+
+  return out;
+}
+
+std::vector<std::shared_ptr<Value>> MLP::parameters() const {
+  std::vector<std::shared_ptr<Value>> out;
+  out.reserve(layers.size());
+
+  for (const auto &l : layers) {
+    auto np = l.parameters();
+    out.insert(out.end(), np.begin(), np.end());
+  }
+
+  return out;
 }
